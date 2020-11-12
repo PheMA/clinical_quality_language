@@ -42,8 +42,6 @@ public class RecursiveLibrarySourceProvider implements LibrarySourceProvider {
                     public boolean test(Path path) {
                         String name = path.toFile().getName();
 
-                        System.out.println(">> NAME: " + name);
-
                         return name.startsWith(libraryName) && name.endsWith(".cql");
                     }
                 };
