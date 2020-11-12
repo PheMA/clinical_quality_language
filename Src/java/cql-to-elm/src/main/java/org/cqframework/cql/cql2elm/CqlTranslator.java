@@ -674,7 +674,7 @@ public class CqlTranslator {
         }
     }
 
-    private static void writeELM(Path inPath, Path outPath, CqlTranslator.Format format, CqlTranslatorOptions options) throws IOException {
+    private static void writeELM(Path inPath, Path outPath, Path libsDir, CqlTranslator.Format format, CqlTranslatorOptions options) throws IOException {
 
         System.err.println("================================================================================");
         System.err.printf("TRANSLATE %s%n", inPath);
@@ -692,6 +692,11 @@ public class CqlTranslator {
         }
         libraryManager.getLibrarySourceLoader().registerProvider(new DefaultLibrarySourceProvider(inPath.getParent()));
         libraryManager.getLibrarySourceLoader().registerProvider(new FhirLibrarySourceProvider());
+
+        if(libsDir != null) {
+            libraryManager.getLibrarySourceLoader().registerProvider(new RecursiveLibrarySourceProvider(libsDir));
+        }
+
         CqlTranslator translator = fromFile(inPath.toFile(), modelManager, libraryManager, ucumService, options);
         libraryManager.getLibrarySourceLoader().clearProviders();
 
@@ -734,6 +739,7 @@ public class CqlTranslator {
     public static void main(String[] args) throws IOException, InterruptedException {
         OptionParser parser = new OptionParser();
         OptionSpec<File> input = parser.accepts("input").withRequiredArg().ofType(File.class).required().describedAs("The name of the input file or directory. If a directory is given, all files ending in .cql will be processed");
+        OptionSpec<File> libs = parser.accepts("libs").withRequiredArg().ofType(File.class).required().describedAs("The name of a directory that will recursively traversed when looking for included libraries");
         OptionSpec<File> model = parser.accepts("model").withRequiredArg().ofType(File.class).describedAs("The name of an input file containing the model info to use for translation. Model info can also be provided through an implementation of ModelInfoProvider");
         OptionSpec<File> output = parser.accepts("output").withRequiredArg().ofType(File.class).describedAs("The name of the output file or directory. If no output is given, an output file name is constructed based on the input name and target format");
         OptionSpec<CqlTranslator.Format> format = parser.accepts("format").withRequiredArg().ofType(CqlTranslator.Format.class).defaultsTo(CqlTranslator.Format.XML).describedAs("The target format for the output");
@@ -766,6 +772,10 @@ public class CqlTranslator {
                         : source.toFile().isDirectory() ? source : source.getParent();
         final CqlTranslator.Format outputFormat = format.value(options);
         final LibraryBuilder.SignatureLevel signatureLevel = signatures.value(options);
+
+        if(!libs.value(options).toPath().toFile().isDirectory()) {
+            throw new IllegalArgumentException("Libs argument must be a directory");
+        }
 
         Map<Path, Path> inOutMap = new HashMap<>();
         if (source.toFile().isDirectory()) {
@@ -828,7 +838,7 @@ public class CqlTranslator {
                 loadModelInfo(modelFile);
             }
 
-            writeELM(in, out, outputFormat, new CqlTranslatorOptions(outputFormat, options.has(optimization),
+            writeELM(in, out, libs.value(options).toPath(), outputFormat, new CqlTranslatorOptions(outputFormat, options.has(optimization),
                     options.has(debug) || options.has(annotations),
                     options.has(debug) || options.has(locators),
                     options.has(debug) || options.has(resultTypes),
