@@ -674,7 +674,8 @@ public class CqlTranslator {
         }
     }
 
-    private static void writeELM(Path inPath, Path outPath, Path libsDir, CqlTranslator.Format format, CqlTranslatorOptions options) throws IOException {
+    private static boolean writeELM(Path inPath, Path outPath, Path libsDir, CqlTranslator.Format format, CqlTranslatorOptions options) throws IOException {
+        boolean hasErrors = false;
 
         System.err.println("================================================================================");
         System.err.printf("TRANSLATE %s%n", inPath);
@@ -703,6 +704,7 @@ public class CqlTranslator {
         if (translator.getErrors().size() > 0) {
             System.err.println("Translation failed due to errors:");
             outputExceptions(translator.getExceptions());
+            hasErrors = true;
         } else if (!options.getVerifyOnly()) {
             if (translator.getExceptions().size() == 0) {
                 System.err.println("Translation completed successfully.");
@@ -733,6 +735,8 @@ public class CqlTranslator {
         }
 
         System.err.println();
+
+        return hasErrors;
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes"})
@@ -800,6 +804,8 @@ public class CqlTranslator {
             inOutMap.put(source, destination);
         }
 
+        boolean hasErrors = false;
+
         for (Map.Entry<Path, Path> inOut : inOutMap.entrySet()) {
             Path in = inOut.getKey();
             Path out = inOut.getValue();
@@ -840,7 +846,7 @@ public class CqlTranslator {
 
             Path libsDir = libs.value(options) == null ? null : libs.value(options).toPath();
 
-            writeELM(in, out, libsDir, outputFormat, new CqlTranslatorOptions(outputFormat, options.has(optimization),
+            boolean result = writeELM(in, out, libsDir, outputFormat, new CqlTranslatorOptions(outputFormat, options.has(optimization),
                     options.has(debug) || options.has(annotations),
                     options.has(debug) || options.has(locators),
                     options.has(debug) || options.has(resultTypes),
@@ -859,6 +865,12 @@ public class CqlTranslator {
                     options.has(validateUnits),
                     signatureLevel,
                     options.has(compatibilityLevel) ? options.valueOf(compatibilityLevel) : null));
+
+            if (!hasErrors && result)
+                hasErrors = true;
         }
+
+        if (hasErrors)
+            System.exit(1);
     }
 }
